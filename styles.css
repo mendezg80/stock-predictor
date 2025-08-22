@@ -1,15 +1,15 @@
 /* Minimal styling for the Stock Prediction Game */
 :root {
-  --bg: #0e1117;
-  --panel: #161b22;
-  --text: #e6edf3;
-  --muted: #9da7b3;
-  --accent: #3fb950;
-  --accent-2: #ef4444;
-  --link: #58a6ff;
-  --btn: #238636;
+  --bg: #FBFAFA; /* Gusto Parsnip-100 */
+  --panel: #FFFFFF;
+  --text: #1F2937;
+  --muted: #6B7280;
+  --accent: #F45D48; /* Gusto Guava */
+  --accent-2: #C81E1E;
+  --link: #F45D48;
+  --btn: #F45D48;
   --btn-text: #ffffff;
-  --btn-sec: #30363d;
+  --btn-sec: #F3F4F6;
 }
 
 * { box-sizing: border-box; }
@@ -35,7 +35,7 @@ h1 {
 .ticker-form {
   background: var(--panel);
   padding: 16px;
-  border: 1px solid #30363d;
+  border: 1px solid #E5E7EB;
   border-radius: 8px;
 }
 
@@ -54,14 +54,14 @@ input[type="text"] {
   flex: 1;
   padding: 10px 12px;
   border-radius: 6px;
-  border: 1px solid #30363d;
-  background: #0b0f14;
+  border: 1px solid #D1D5DB;
+  background: #FFFFFF;
   color: var(--text);
 }
 
 button {
   padding: 10px 14px;
-  border: 1px solid #1f6f3e;
+  border: 1px solid #E14E3A;
   border-radius: 6px;
   background: var(--btn);
   color: var(--btn-text);
@@ -75,14 +75,14 @@ button[disabled] {
 
 button.secondary {
   background: var(--btn-sec);
-  border-color: #30363d;
+  border-color: #E5E7EB;
 }
 
 .game {
   margin-top: 20px;
   background: var(--panel);
   padding: 16px;
-  border: 1px solid #30363d;
+  border: 1px solid #E5E7EB;
   border-radius: 8px;
 }
 

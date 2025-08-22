@@ -78,6 +78,11 @@
       err.code = "RATE_LIMIT";
       throw err;
     }
+    if (data.Information) {
+      const err = new Error(data.Information);
+      err.code = "INFORMATION";
+      throw err;
+    }
     if (data["Error Message"]) {
       const err = new Error("Invalid ticker symbol. Please try another.");
       err.code = "INVALID_TICKER";
@@ -85,7 +90,8 @@
     }
     const seriesObj = data["Time Series (Daily)"];
     if (!seriesObj || typeof seriesObj !== "object") {
-      const err = new Error("Unexpected API response. Please try again.");
+      console.warn("Alpha Vantage unexpected response:", data);
+      const err = new Error("Unexpected API response. Please try again in a moment.");
       err.code = "NO_SERIES";
       throw err;
     }
@@ -117,8 +123,6 @@
     for (let i = 0; i < seriesAsc.length; i++) {
       const { date } = seriesAsc[i];
       if (date >= minStr && date <= maxStr) {
-        // Require at least 6 prior trading days to show 7 days including start
-        // and require at least one next day for the first prediction
         if (i >= 6 && i + 1 < seriesAsc.length) {
           candidates.push(i);
         }
@@ -206,7 +210,6 @@
       const startIndex = pickStartIndexWithinWindow(seriesAsc);
       state.startIndex = startIndex;
 
-      // Build initial 7-point window: 6 prior days + start date
       const windowStart = startIndex - 6;
       const initialSlice = seriesAsc.slice(windowStart, startIndex + 1);
       const labels = initialSlice.map(p => p.date);
@@ -214,7 +217,7 @@
 
       initChart(labels, data);
 
-      state.currentIndex = startIndex; // latest day shown equals start date
+      state.currentIndex = startIndex;
       state.score = 0;
       state.inRound = true;
       state.ended = false;
@@ -233,6 +236,11 @@
         showNote("Alpha Vantage limits 5 requests/minute on free tier.");
       } else if (err.code === "INVALID_TICKER") {
         showError("Ticker not found. Please try another.");
+      } else if (err.code === "INFORMATION") {
+        showError(err.message);
+        if (/api key/i.test(err.message)) {
+          showNote("Check your API key value and daily limits.");
+        }
       } else if (err.code === "INSUFFICIENT_DATA") {
         showError("Not enough data in the last 100 days for this ticker.");
       } else {
@@ -268,7 +276,6 @@
       els.roundResult.textContent = `Wrong. ${next.date} close: ${nextClose.toFixed(2)}.`;
     }
 
-    // Reveal next day and advance
     updateChartAppendNext(next.date, nextClose);
     state.currentIndex = i + 1;
     updateStatusBar();
@@ -281,7 +288,6 @@
     els.btnEnd.disabled = true;
   }
 
-  // Event listeners
   els.form.addEventListener("submit", (e) => {
     e.preventDefault();
     const raw = (els.input.value || "").trim().toUpperCase();
