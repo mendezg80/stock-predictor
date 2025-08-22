@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stock Prediction Game</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script defer src="app.js"></script>
+</head>
+<body>
+  <div class="container">
+    <h1>Stock Market Prediction Game</h1>
+
+    <form id="ticker-form" class="ticker-form">
+      <label for="ticker-input">Enter a stock ticker (e.g., MSFT, COF):</label>
+      <div class="input-row">
+        <input id="ticker-input" type="text" placeholder="MSFT" autocomplete="off" required maxlength="10" />
+        <button id="start-btn" type="submit">Start Game</button>
+      </div>
+      <div id="form-error" class="error" role="alert" aria-live="polite"></div>
+      <div id="form-note" class="note" aria-live="polite"></div>
+    </form>
+
+    <section id="game" class="game" hidden>
+      <div class="status-bar">
+        <div><strong>Ticker:</strong> <span id="status-ticker">—</span></div>
+        <div><strong>Current date:</strong> <span id="status-date">—</span></div>
+        <div><strong>Score:</strong> <span id="status-score">0</span></div>
+      </div>
+
+      <div class="controls">
+        <button id="guess-up" class="guess" disabled>Predict Up ▲</button>
+        <button id="guess-down" class="guess" disabled>Predict Down ▼</button>
+        <button id="end-game" class="secondary" disabled>End Game</button>
+        <button id="restart" class="secondary">Restart</button>
+      </div>
+
+      <canvas id="price-chart" height="140"></canvas>
+
+      <div id="round-result" class="round-result" aria-live="polite"></div>
+    </section>
+
+    <footer>
+      <p>Data source: <a href="https://www.alphavantage.co/" target="_blank" rel="noreferrer">Alpha Vantage</a></p>
+    </footer>
+  </div>
+</body>
+</html>
