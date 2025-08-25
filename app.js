@@ -41,6 +41,8 @@
     els.btnDown.disabled = isLoading || !state.ticker || state.ended;
     els.btnEnd.disabled = isLoading || !state.ticker || state.ended;
     els.btnRestart.disabled = isLoading;
+    els.form.setAttribute('aria-busy', String(isLoading));
+    els.game.setAttribute('aria-busy', String(isLoading));
   }
 
   function showError(msg) {
@@ -143,6 +145,12 @@
     if (priceChart) {
       priceChart.destroy();
     }
+    const cs = getComputedStyle(document.documentElement);
+    const line = cs.getPropertyValue('--chart-line').trim() || '#58a6ff';
+    const fill = cs.getPropertyValue('--chart-fill').trim() || 'rgba(88,166,255,0.15)';
+    const grid = cs.getPropertyValue('--chart-grid').trim() || '#22262d';
+    const tick = cs.getPropertyValue('--chart-tick').trim() || '#9da7b3';
+    const legend = cs.getPropertyValue('--chart-legend').trim() || '#c9d1d9';
     priceChart = new Chart(els.chartCanvas.getContext("2d"), {
       type: "line",
       data: {
@@ -151,8 +159,8 @@
           {
             label: "Close",
             data,
-            borderColor: "#58a6ff",
-            backgroundColor: "rgba(88,166,255,0.15)",
+            borderColor: line,
+            backgroundColor: fill,
             pointRadius: 3,
             tension: 0.25,
           },
@@ -163,16 +171,16 @@
         maintainAspectRatio: false,
         scales: {
           x: {
-            ticks: { color: "#9da7b3" },
-            grid: { color: "#22262d" },
+            ticks: { color: tick },
+            grid: { color: grid },
           },
           y: {
-            ticks: { color: "#9da7b3" },
-            grid: { color: "#22262d" },
+            ticks: { color: tick },
+            grid: { color: grid },
           },
         },
         plugins: {
-          legend: { labels: { color: "#c9d1d9" } },
+          legend: { labels: { color: legend } },
           tooltip: { mode: "index", intersect: false },
         },
       },
@@ -264,6 +272,8 @@
     const nextClose = next.close;
     const movedUp = nextClose > todayClose;
     const movedDown = nextClose < todayClose;
+    const changePct = todayClose ? ((nextClose - todayClose) / todayClose) * 100 : 0;
+    const pctText = `${changePct >= 0 ? "+" : ""}${changePct.toFixed(2)}%`;
 
     let correct = false;
     if (direction === "up" && movedUp) correct = true;
@@ -271,9 +281,16 @@
 
     if (correct) {
       state.score += 1;
-      els.roundResult.textContent = `Correct! ${next.date} close: ${nextClose.toFixed(2)}.`;
+      els.roundResult.textContent = `Correct! ${next.date} close: ${nextClose.toFixed(2)} (${pctText}).`;
     } else {
-      els.roundResult.textContent = `Wrong. ${next.date} close: ${nextClose.toFixed(2)}.`;
+      els.roundResult.textContent = `Wrong. ${next.date} close: ${nextClose.toFixed(2)} (${pctText}).`;
+    }
+
+    els.roundResult.classList.remove("win", "lose");
+    if (movedUp) {
+      els.roundResult.classList.add("win");
+    } else if (movedDown) {
+      els.roundResult.classList.add("lose");
     }
 
     updateChartAppendNext(next.date, nextClose);
@@ -286,6 +303,7 @@
     els.btnUp.disabled = true;
     els.btnDown.disabled = true;
     els.btnEnd.disabled = true;
+    els.roundResult.classList.remove("win", "lose");
   }
 
   els.form.addEventListener("submit", (e) => {
@@ -297,7 +315,55 @@
     }
     showError("");
     showNote("");
+    try {
+      localStorage.setItem("lastTicker", raw);
+    } catch {}
     startGame(raw);
+  });
+
+  // Keyboard shortcuts for gameplay
+  // ArrowUp: predict up, ArrowDown: predict down, E: end game, R: restart
+  document.addEventListener("keydown", (e) => {
+    const target = e.target;
+    if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT" || target.isContentEditable)) {
+      return; // do not intercept typing
+    }
+    if (!state.ticker || state.ended) {
+      // Allow restart even after end
+      if ((e.key === "r" || e.key === "R") && !els.btnRestart.disabled) {
+        e.preventDefault();
+        resetUIForNewGame();
+        els.input.focus();
+      }
+      return;
+    }
+
+    switch (e.key) {
+      case "ArrowUp":
+        e.preventDefault();
+        if (!els.btnUp.disabled) evaluateGuess("up");
+        break;
+      case "ArrowDown":
+        e.preventDefault();
+        if (!els.btnDown.disabled) evaluateGuess("down");
+        break;
+      case "e":
+      case "E":
+        e.preventDefault();
+        if (!els.btnEnd.disabled) {
+          endGame();
+          els.roundResult.textContent = `Game over. Final score: ${state.score}.`;
+        }
+        break;
+      case "r":
+      case "R":
+        e.preventDefault();
+        if (!els.btnRestart.disabled) {
+          resetUIForNewGame();
+          els.input.focus();
+        }
+        break;
+    }
   });
 
   els.btnUp.addEventListener("click", () => evaluateGuess("up"));
@@ -310,4 +376,12 @@
     resetUIForNewGame();
     els.input.focus();
   });
+
+  // Prefill last used ticker on load
+  try {
+    const last = localStorage.getItem("lastTicker");
+    if (last) {
+      els.input.value = last;
+    }
+  } catch {}
 })();
