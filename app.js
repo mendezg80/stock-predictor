@@ -1,5 +1,5 @@
 (() => {
-  const API_KEY = "Q49LMYC8Q9U3G1RS";
+  const API_KEY = "EQOX8IAYQYPPT4FS";
   const BASE_URL = "https://www.alphavantage.co/query";
 
   const els = {
