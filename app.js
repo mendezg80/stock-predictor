@@ -11,6 +11,8 @@
     statusTicker: document.getElementById("status-ticker"),
     statusDate: document.getElementById("status-date"),
     statusScore: document.getElementById("status-score"),
+    statusModel: document.getElementById("status-model"),
+    statusModelScore: document.getElementById("status-model-score"),
     btnUp: document.getElementById("guess-up"),
     btnDown: document.getElementById("guess-down"),
     btnEnd: document.getElementById("end-game"),
@@ -28,6 +30,9 @@
     startIndex: null, // index in seriesAsc of start date
     currentIndex: null, // index of the latest day shown (current date)
     score: 0,
+    modelName: "SMA(5) slope",
+    modelSuggestion: null, // "up" | "down" | null when unavailable
+    modelScore: 0,
     inRound: false,
     ended: false,
   });
@@ -57,6 +62,38 @@
     els.statusTicker.textContent = state.ticker || "—";
     els.statusDate.textContent = state.currentIndex != null ? state.seriesAsc[state.currentIndex].date : "—";
     els.statusScore.textContent = String(state.score);
+    if (els.statusModel) {
+      const s = state.modelSuggestion;
+      els.statusModel.textContent = s ? `${state.modelName}: ${s === "up" ? "Up" : "Down"}` : "—";
+    }
+    if (els.statusModelScore) {
+      els.statusModelScore.textContent = String(state.modelScore);
+    }
+  }
+
+  // -------- Local cache for time series (TTL) --------
+  const CACHE_TTL_MS = 12 * 60 * 60 * 1000; // 12 hours
+  function cacheKeyForTicker(ticker) {
+    return `av:series:${ticker}`;
+  }
+  function loadSeriesFromCache(ticker) {
+    try {
+      const raw = localStorage.getItem(cacheKeyForTicker(ticker));
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (!parsed || !Array.isArray(parsed.series) || !parsed.fetchedAt) return null;
+      const age = Date.now() - parsed.fetchedAt;
+      if (age > CACHE_TTL_MS) return null;
+      return parsed.series;
+    } catch {
+      return null;
+    }
+  }
+  function saveSeriesToCache(ticker, series) {
+    try {
+      const payload = JSON.stringify({ series, fetchedAt: Date.now() });
+      localStorage.setItem(cacheKeyForTicker(ticker), payload);
+    } catch {}
   }
 
   async function fetchTimeSeriesDailyAdjusted(ticker) {
@@ -102,6 +139,37 @@
       .filter(p => Number.isFinite(p.close))
       .sort((a, b) => new Date(a.date) - new Date(b.date));
     return seriesDesc;
+  }
+
+  async function getSeriesWithCache(ticker) {
+    const cached = loadSeriesFromCache(ticker);
+    if (cached) {
+      return cached;
+    }
+    const series = await fetchTimeSeriesDailyAdjusted(ticker);
+    saveSeriesToCache(ticker, series);
+    return series;
+  }
+
+  // -------- Simple SMA(5) slope model --------
+  const SMA_PERIOD = 5;
+  function computeSMAAt(index, seriesAsc, period) {
+    if (index < period - 1) return null;
+    let sum = 0;
+    for (let i = index - (period - 1); i <= index; i++) {
+      sum += seriesAsc[i].close;
+    }
+    return sum / period;
+  }
+  function computeModelSuggestion(index, seriesAsc) {
+    // Predict next day's move based on SMA slope from (index-1) to (index)
+    if (index <= 0) return null;
+    const smaPrev = computeSMAAt(index - 1, seriesAsc, SMA_PERIOD);
+    const smaToday = computeSMAAt(index, seriesAsc, SMA_PERIOD);
+    if (smaPrev == null || smaToday == null) return null;
+    if (smaToday > smaPrev) return "up";
+    if (smaToday < smaPrev) return "down";
+    return "down"; // default when equal
   }
 
   function dateToYMD(d) {
@@ -211,7 +279,7 @@
     resetUIForNewGame();
     setLoading(true);
     try {
-      const seriesAsc = await fetchTimeSeriesDailyAdjusted(ticker);
+      const seriesAsc = await getSeriesWithCache(ticker);
       state.ticker = ticker;
       state.seriesAsc = seriesAsc;
 
@@ -227,6 +295,8 @@
 
       state.currentIndex = startIndex;
       state.score = 0;
+      state.modelScore = 0;
+      state.modelSuggestion = computeModelSuggestion(startIndex, seriesAsc);
       state.inRound = true;
       state.ended = false;
 
@@ -293,8 +363,16 @@
       els.roundResult.classList.add("lose");
     }
 
+    // Evaluate model performance for this step
+    if (state.modelSuggestion) {
+      const modelCorrect = (state.modelSuggestion === "up" && movedUp) || (state.modelSuggestion === "down" && movedDown);
+      if (modelCorrect) state.modelScore += 1;
+    }
+
     updateChartAppendNext(next.date, nextClose);
     state.currentIndex = i + 1;
+    // Compute next suggestion for upcoming step
+    state.modelSuggestion = computeModelSuggestion(state.currentIndex, state.seriesAsc);
     updateStatusBar();
   }
 
